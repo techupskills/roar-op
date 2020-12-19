@@ -1,0 +1,24 @@
+# permissions for end users to edit roarapps.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: roarapp-editor-role
+rules:
+- apiGroups:
+  - roarapp.roarapp.com
+  resources:
+  - roarapps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - roarapp.roarapp.com
+  resources:
+  - roarapps/status
+  verbs:
+  - get

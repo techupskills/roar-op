@@ -1,0 +1,7 @@
+apiVersion: roarapp.roarapp.com/v1alpha1
+kind: RoarApp
+metadata:
+  name: roarapp-sample
+spec:
+  # Add fields here
+  foo: bar
