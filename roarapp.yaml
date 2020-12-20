@@ -4,4 +4,4 @@ metadata:
   name: roarapp-sample
 spec:
   # Add fields here
-  replicas: 1
+  replicas: 3

@@ -42,12 +42,15 @@ type RoarAppReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=instance.instance.com,resources=instances,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=instance.instance.com,resources=instances/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=roarapp.roarapp.com,resources=roarapps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=roarapp.roarapp.com,resources=roarapps/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 
 func (r *RoarAppReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
-	log := r.Log.WithValues("instance", req.NamespacedName)
+	log := r.Log.WithValues("roarapp", req.NamespacedName)
 
 	log.Info("Reconciling instance")
 

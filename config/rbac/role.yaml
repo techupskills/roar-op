@@ -7,9 +7,9 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - instance.instance.com
+  - apps
   resources:
-  - instances
+  - deployments
   verbs:
   - create
   - delete
@@ -19,9 +19,44 @@ rules:
   - update
   - watch
 - apiGroups:
-  - instance.instance.com
+  - batch
   resources:
-  - instances/status
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - roarapp.roarapp.com
+  resources:
+  - roarapps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - roarapp.roarapp.com
+  resources:
+  - roarapps/status
   verbs:
   - get
   - patch
