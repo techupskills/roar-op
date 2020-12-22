@@ -36,13 +36,15 @@ spec:
         spec:
           description: RoarAppSpec defines the desired state of RoarApp
           properties:
-            imageSource:
+            dbImage:
               type: string
             replicas:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                 Important: Run "make" to regenerate code after modifying this file'
               format: int32
               type: integer
+            webImage:
+              type: string
           required:
           - replicas
           type: object

@@ -27,8 +27,9 @@ import (
 type RoarAppSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Replicas    int32  `json:"replicas"`
-	ImageSource string `json:"imageSource,omitempty"`
+	Replicas int32  `json:"replicas"`
+	WebImage string `json:"webImage,omitempty"`
+	DbImage  string `json:"dbImage,omitempty"`
 }
 
 // RoarAppStatus defines the observed state of RoarApp

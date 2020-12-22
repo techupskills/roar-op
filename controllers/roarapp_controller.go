@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strconv"
 	// "k8s.io/apimachinery"
 	// "k8s.io/client-go@0.17.0"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,6 +42,8 @@ type RoarAppReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
+
+var nextPort = 0
 
 // +kubebuilder:rbac:groups=roarapp.roarapp.com,resources=roarapps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=roarapp.roarapp.com,resources=roarapps/status,verbs=get;update;patch
@@ -68,7 +71,7 @@ func (r *RoarAppReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	// List all pods owned by this instance instance
+	// List all pods owned by this roarapp instance
 	podList := &corev1.PodList{}
 	lbs := map[string]string{
 		"app":     instance.Name,
@@ -150,26 +153,33 @@ func (r *RoarAppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // newPodForCR returns a instance pod with the same name/namespace as the cr
 func newPodForCR(cr *roarappv1alpha1.RoarApp) *corev1.Pod {
+	if nextPort == 0 {
+		nextPort = 32000
+	} else {
+		nextPort++
+	}
+	strPort := strconv.Itoa(nextPort)
 	labels := map[string]string{
-		"app":     cr.Name,
-		"version": "v0.1",
+		"app":      cr.Name,
+		"version":  "v0.1",
+		"nodePort": strPort,
 	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: cr.Name + "-pod",
-			Namespace:    cr.Namespace,
-			Labels:       labels,
+			Name:      cr.Name + "-pod" + strPort,
+			Namespace: cr.Namespace,
+			Labels:    labels,
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
 					Name:    "roar-web",
-					Image:   "quay.io/bclaster/roar-web:1.0.1",
+					Image:   cr.Spec.WebImage,
 					Command: []string{"catalina.sh", "run"},
 				},
 				{
 					Name:    "roar-db",
-					Image:   "quay.io/bclaster/roar-db:1.0.2",
+					Image:   cr.Spec.DbImage,
 					Env:     []corev1.EnvVar{{Name: "MYSQL_USER", Value: "admin"}, {Name: "MYSQL_PASSWORD", Value: "admin"}, {Name: "MYSQL_ROOT_PASSWORD", Value: "root+1"}, {Name: "MYSQL_DATABASE", Value: "registry"}},
 					Command: []string{"/entrypoint.sh"},
 					Args:    []string{"mysqld"},
