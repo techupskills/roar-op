@@ -21,12 +21,15 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"strconv"
+	"strings"
 	// "k8s.io/apimachinery"
 	// "k8s.io/client-go@0.17.0"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,6 +53,7 @@ var nextPort = 0
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;delete
 
 func (r *RoarAppReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
@@ -57,7 +61,7 @@ func (r *RoarAppReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	log.Info("Reconciling instance")
 
-	// Fetch the instance instance
+	// Fetch the roarapp instance
 	instance := &roarappv1alpha1.RoarApp{}
 	err := r.Client.Get(context.TODO(), req.NamespacedName, instance)
 	if err != nil {
@@ -122,6 +126,24 @@ func (r *RoarAppReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				log.Error(err, "Failed to delete pod", "pod.name", dpod.Name)
 				return ctrl.Result{}, err
 			}
+			log.Info("Scaling down corresponding service", "Pod", numAvailable, "Service", instance.Spec.Replicas)
+			strPort := dpod.Name[strings.LastIndex(dpod.Name, "-")+1:]
+			sName := instance.Name + "-service-" + strPort
+			//found := &appsv1.Deployment{}
+			s := &corev1.Service{}
+			err := r.Client.Get(context.TODO(), types.NamespacedName{
+				Name:      sName,
+				Namespace: req.Namespace,
+			}, s)
+			err = r.Client.Delete(context.TODO(), s)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					// Return and don't requeue
+					return ctrl.Result{}, nil
+				}
+				// Error reading the object - requeue the request.
+				return ctrl.Result{}, err
+			}
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -139,6 +161,17 @@ func (r *RoarAppReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			log.Error(err, "Failed to create pod", "pod.name", pod.Name)
 			return ctrl.Result{}, err
 		}
+		// Define a new Service object
+		svc := newServiceForPod(instance)
+		// Set instance instance as the owner and controller
+		if err := controllerutil.SetControllerReference(instance, svc, r.Scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+		err = r.Client.Create(context.TODO(), svc)
+		if err != nil {
+			log.Error(err, "Failed to create service", "svc.name", svc.Name)
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -149,6 +182,31 @@ func (r *RoarAppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&roarappv1alpha1.RoarApp{}).
 		Complete(r)
+}
+
+func newServiceForPod(cr *roarappv1alpha1.RoarApp) *corev1.Service {
+
+	strPort := strconv.Itoa(nextPort)
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-service-" + strPort,
+			Namespace: cr.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports: []corev1.ServicePort{{
+				Protocol:   corev1.ProtocolTCP,
+				Port:       8089,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   int32(nextPort),
+			}},
+			Type: corev1.ServiceTypeNodePort,
+		},
+	}
 }
 
 // newPodForCR returns a instance pod with the same name/namespace as the cr
@@ -166,7 +224,7 @@ func newPodForCR(cr *roarappv1alpha1.RoarApp) *corev1.Pod {
 	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod" + strPort,
+			Name:      cr.Name + "-pod-" + strPort,
 			Namespace: cr.Namespace,
 			Labels:    labels,
 		},
